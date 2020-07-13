@@ -8,7 +8,9 @@ def regex_divisible_by(n)
     p "Initial complex: #{fsm.state_complexes[0]}, total length: #{fsm.state_complexes[0].map(&:join).join.length}"
     p "State complexes: #{fsm.state_complexes}, total length: #{fsm.state_complexes.map(&:join).join.length}"
   
-    fsm.find_regexp.join
+    regexp = fsm.find_regexp
+    p regexp
+    regexp
   end
     
   class FinitStateMachine
@@ -54,7 +56,7 @@ def regex_divisible_by(n)
 
     def find_regexp
       result = initial_state_complex
-      (@n**2).times do |i|
+      (@n).times do |i|
         puts "Result #{i}: #{result}"
 
         result.map! do |path|
@@ -63,7 +65,7 @@ def regex_divisible_by(n)
             if s.is_a? String
               subst = s
             else
-              subst = @state_complexes[s].reject{ |p| (p & prev).any? }
+              subst = @state_complexes[s].reject{ |p| (p & prev).any? or p.detect{|s| s < i if s.is_a? Integer}}
               if subst.any?
                 (subst.length-1).times{ |i| subst.insert(i*2+1, '|') }
                 subst.flatten!
@@ -77,16 +79,14 @@ def regex_divisible_by(n)
           path.flatten
         end
       end
-      p result.join
-      result
+      "^" + result.join + "$"
     end
   end
 
 
   data = [ # divisor, input,      expect
-              [3,      9.to_s(2), true],
-  ]
-  
+    [6,      270.to_s(2),  true],
+]
   data.each{ |n,s,exp|
     act = Regexp.new(regex_divisible_by(n)).match?(s)
     p act == exp ? 'SUCCESS' : 'FAIL'
