@@ -2,10 +2,10 @@
 
 def regex_divisible_by(n)
     fsm = FinitStateMachine.new(n)
-    p "FSM(#{n}): #{fsm.nodes}"
+    #p "FSM(#{n}): #{fsm.nodes}"
   
     fsm.find_state_complexes()
-    p "State complexes: #{fsm.state_complexes}, total length: #{fsm.state_complexes.map(&:join).join.length}"
+    #p "State complexes: #{fsm.state_complexes}, total length: #{fsm.state_complexes.map(&:join).join.length}"
   
     regexp = fsm.find_regexp
     p regexp
@@ -53,19 +53,22 @@ def regex_divisible_by(n)
       [[0]]
     end
 
-    # TODO: сократить дефендером
     def conditional_complex_of_states(complex, condition)
-      if complex.is_a? String
-        return complex
-      else
-        return @state_complexes[complex].reject{ |path| (path & condition).any? }
-      end
+      return complex if complex.is_a? String
+      return @state_complexes[complex].reject{ |path| (path & condition).any? }
     end
 
     def expansion(exp, prev = [])
-      p "Expression to expansion: #{exp}"
-      return "(#{exp})*" if exp.is_a? String
-      return exp if !(exp.flatten.detect{|s| s.is_a? Integer})
+      return exp if exp.is_a? String
+      return if exp.empty?
+      unless exp.flatten.detect{|s| s.is_a? Integer}
+        (exp.length-1).times{ |i| exp.insert(i*2+1, '|') }
+        exp.flatten!(1)
+        exp.unshift('(')
+        exp << ')*'
+        return exp
+      end
+
       result = exp.map do |path|
         pprev = prev.clone
         path.map do |s|
@@ -80,7 +83,6 @@ def regex_divisible_by(n)
       result.unshift('(')
       result << ')*'
 
-      p "Expression result: #{result}"
       result
     end
     
@@ -88,17 +90,33 @@ def regex_divisible_by(n)
       result = initial_state_complex
       result = expansion(result)  
 
-      p result
-      
-      "^" + result.join + "$"
+      "^" + result[1].join + "$"
     end
   end
 
 
   data = [ # divisor, input,      expect
-    [4,      988.to_s(2),  true],
+    [1,      5.to_s(2),  true],
+    [2,      0.to_s(2),  true],
+    [2,      16.to_s(2), true],
+    [2,      13.to_s(2), false],
+    [3,      7.to_s(2), false],
+    [5,      65.to_s(2), true],
+    [5,      155.to_s(2), true],
+    [5,      3.to_s(2),  false],
+    [5,      13.to_s(2), false],
+    [10,     20.to_s(2), true],
+    [15,     30.to_s(2), true],
+    [16,     32.to_s(2), true],
+    [17,     34.to_s(2), true],
+    [18,     18000.to_s(2), true],
+    [3,      "nope",     false],
+    [3,      "3",        false],
 ]
   data.each{ |n,s,exp|
-    act = Regexp.new(regex_divisible_by(n)).match?(s)
+    regexp = Regexp.new(regex_divisible_by(n))
+    p "#{s}/#{n} should be #{exp}"
+
+    act = regexp.match?(s)
     p act == exp ? 'SUCCESS' : 'FAIL'
   }
