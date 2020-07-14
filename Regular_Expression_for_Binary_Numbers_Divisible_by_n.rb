@@ -5,7 +5,6 @@ def regex_divisible_by(n)
     p "FSM(#{n}): #{fsm.nodes}"
   
     fsm.find_state_complexes()
-    p "Initial complex: #{fsm.state_complexes[0]}, total length: #{fsm.state_complexes[0].map(&:join).join.length}"
     p "State complexes: #{fsm.state_complexes}, total length: #{fsm.state_complexes.map(&:join).join.length}"
   
     regexp = fsm.find_regexp
@@ -54,38 +53,50 @@ def regex_divisible_by(n)
       [[0]]
     end
 
-    def find_regexp
-      result = initial_state_complex
-      (@n).times do |i|
-        puts "Result #{i}: #{result}"
+    # TODO: сократить дефендером
+    def conditional_complex_of_states(complex, condition)
+      if complex.is_a? String
+        return complex
+      else
+        return @state_complexes[complex].reject{ |path| (path & condition).any? }
+      end
+    end
 
-        result.map! do |path|
-          prev = [0]
-          path.map! do |s|
-            if s.is_a? String
-              subst = s
-            else
-              subst = @state_complexes[s].reject{ |p| (p & prev).any? or p.detect{|s| s < i if s.is_a? Integer}}
-              if subst.any?
-                (subst.length-1).times{ |i| subst.insert(i*2+1, '|') }
-                subst.flatten!
-                subst.unshift('(')
-                subst << ')*'
-              end
-              prev << s
-            end
-            subst
-          end
-          path.flatten
+    def expansion(exp, prev = [])
+      p "Expression to expansion: #{exp}"
+      return "(#{exp})*" if exp.is_a? String
+      return exp if !(exp.flatten.detect{|s| s.is_a? Integer})
+      result = exp.map do |path|
+        pprev = prev.clone
+        path.map do |s|
+          subst = conditional_complex_of_states(s, prev)
+          prev << s if s.is_a? Integer
+          subst = expansion(subst, prev)
         end
       end
+
+      (result.length-1).times{ |i| result.insert(i*2+1, '|') }
+      result.flatten!(1)
+      result.unshift('(')
+      result << ')*'
+
+      p "Expression result: #{result}"
+      result
+    end
+    
+    def find_regexp
+      result = initial_state_complex
+      result = expansion(result)  
+
+      p result
+      
       "^" + result.join + "$"
     end
   end
 
 
   data = [ # divisor, input,      expect
-    [6,      270.to_s(2),  true],
+    [4,      988.to_s(2),  true],
 ]
   data.each{ |n,s,exp|
     act = Regexp.new(regex_divisible_by(n)).match?(s)
