@@ -69,6 +69,7 @@ class FinitStateMachine
   # expands expression. any strings ignores, any integers becomes
   # conditional complex of states
   def expansion(exp, prev = [])
+    #p "Prev states: #{prev}, exporession to expansion: #{exp}"
     return exp if exp.is_a? String
     return if exp.empty?
   
@@ -81,7 +82,7 @@ class FinitStateMachine
       path.map do |s|
         subst = conditional_complex_of_states(s, pprev)
         pprev << s if s.is_a? Integer
-        subst = expansion(subst, pprev)
+        expansion(subst, pprev)
       end
     end
 
@@ -99,10 +100,8 @@ class FinitStateMachine
   end
 
   def find_regexp
-    result = initial_state_complex
-    result = expansion(result)  
 
-    "^" + result.join + "$"
+    "^" + expansion(initial_state_complex).join + "$"
   end
 end
 
@@ -134,7 +133,7 @@ data1 = [ # divisor, input,      expect
 
 
 data2 = []
-for j in 1..12 do
+for j in 1..9 do
   for i in 1..100 do
     data2 << [j, i, i%j == 0]
   end
@@ -142,10 +141,21 @@ end
 
 data2.compact!
 
-data2.each{ |n,s,exp|
-  regexp = Regexp.new(regex_divisible_by(n))
- # p "#{s}/#{n} should be #{exp}"
+# data2.each{ |n,s,exp|
+#   regexp = Regexp.new(regex_divisible_by(n))
 
-  act = regexp.match?(s.to_s(2))
-  p act == exp ? "SUCCESS on #{s}/#{n}" : "FAIL: #{s}/#{n} should be #{exp}"
-}
+#   act = regexp.match?(s.to_s(2))
+#   p act == exp ? "SUCCESS on #{s}/#{n}" : "FAIL: #{s}/#{n} should be #{exp}"
+# }
+
+
+n = 12
+fsm = FinitStateMachine.new(n)
+p "FSM(#{n}): #{fsm.nodes}"
+
+fsm.find_state_complexes()
+p "State complexes: #{fsm.state_complexes}, total length: #{fsm.state_complexes.map(&:join).join.length}"
+p "Initial state complex: #{fsm.state_complexes[0]}, total length: #{fsm.state_complexes[0].map(&:join).join.length}"
+
+regexp = fsm.find_regexp
+p regexp
