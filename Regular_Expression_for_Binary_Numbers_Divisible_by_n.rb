@@ -6,9 +6,6 @@ def regex_divisible_by(n)
   fsm = FinitStateMachine.new(n)
  # p "FSM(#{n}): #{fsm.nodes}"
 
-  fsm.find_state_complexes()
- # p "State complexes: #{fsm.state_complexes}, total length: #{fsm.state_complexes.map(&:join).join.length}"
-
   regexp = fsm.find_regexp
  # p regexp
   regexp
@@ -16,92 +13,61 @@ end
 
 
 class FinitStateMachine
-  attr_reader :nodes, :state_complexes
+  attr_reader :nodes
 
   def initialize(divider)
     @n = divider
-    @state_complexes = Array.new(@n) {Array.new()}
     # node index is FSM state
     @nodes = []
     @n.times do |state|
       # state index is a transition, value is a direction
-      @nodes[state] = [transition(state, '0'), transition(state, '1')]
+      @nodes[state] = {'0' => transition(state, '0'),'1' => transition(state, '1')}
     end
   end
 
   def transition(state, x)
-    ((state.to_s(2) + x).to_i(2) % @n).to_s(2)
+    ((state.to_s(2) + x).to_i(2) % @n)
   end
 
-  # x_path is closed path from state to itself without repeating states
-  def find_x_paths(exit_state = 0, state = 0, path = [], tr = nil)
-    if state == exit_state and tr
-      path << tr
-      path << state
-      @state_complexes[exit_state] << path[1...-1]
-      return
-    end
-    return if path.include?(state)
+  def remove_state(state)
+   # p "Current state: #{state}"
+   # p "Current FSM: #{@nodes}"
 
-    path << tr if tr
-    path << state
-    find_x_paths(exit_state, @nodes[state][0].to_i(2), path.clone, '0')
-    find_x_paths(exit_state, @nodes[state][1].to_i(2), path.clone, '1')
-  end
+    # creating array of all clouseres of state
+    closure_transitions = @nodes[state].find_all{ |tr, st| st == state }.map!(&:first)
 
-  def find_state_complexes
-    @n.times do |s|
-      find_x_paths(s, s)
-    end
-  end
+    # creating full closure of state
+    closure = closure_transitions.empty? ? '' : "(#{closure_transitions.join('|')})*"
 
-  def initial_state_complex
-    [[0]]
-  end
+   # p "Closure is: #{closure}"
 
-  # conditional complex of states is complex of states
-  # without paths including any of 'condition' states
-  def conditional_complex_of_states(complex, condition)
-    return complex if complex.is_a? String
-    return @state_complexes[complex].reject{ |path| (path & condition).any? }
-  end
+    incoming = @nodes.map.with_index do |n, i|
+      [n.find_all{|tr, st| st == state}[0][0], i] if n.detect{|tr, st| st == state} and i != state
+    end.compact
+    #p "Incoming nodes: #{incoming}"
 
-  # expands expression. any strings ignores, any integers becomes
-  # conditional complex of states
-  def expansion(exp, prev = [])
-    #p "Prev states: #{prev}, exporession to expansion: #{exp}"
-    return exp if exp.is_a? String
-    return if exp.empty?
-  
-    unless exp.flatten.detect{|s| s.is_a? Integer}
-      return exp.join + '*'
-    end
-
-    result = exp.map do |path|
-      pprev = prev.clone
-      path.map do |s|
-        subst = conditional_complex_of_states(s, pprev)
-        pprev << s if s.is_a? Integer
-        expansion(subst, pprev)
+    incoming.each do |inc_tr, n|
+      @nodes[n].delete(inc_tr)
+      @nodes[state].each do |out_tr, st|
+        existing_tr = @nodes[n].key(st)
+        @nodes[n].delete(existing_tr) if existing_tr
+        new_tr = "#{inc_tr}#{closure}#{out_tr}"
+        full_tr = [existing_tr, new_tr].compact.join('|')
+        full_tr = "(#{full_tr})"
+        @nodes[n][full_tr] = st unless st == state
+      #  p "New transition from #{n}: #{full_tr} => #{st}" unless st == state
       end
     end
 
-    flatten_expression(result)
-  end
-
-  # concludes each path of expression in brackets, divides them with '|',
-  # concludes all expression in brackets with Kleene star
-  def flatten_expression(exp)
-    (exp.length-1).times{ |i| exp.insert(i*2+1, ')|(') }
-    exp.flatten!(1)
-    exp.unshift('((')
-    exp << '))*'
-    exp
+    @nodes.delete_at(state)
   end
 
   def find_regexp
+    (1...@n).reverse_each do |i|
+      remove_state(i)
+    end
 
-    "^" + expansion(initial_state_complex).join + "$"
+    "^(0|#{@nodes[0].keys.first})*$"
   end
 end
 
@@ -133,7 +99,7 @@ data1 = [ # divisor, input,      expect
 
 
 data2 = []
-for j in 1..9 do
+for j in 1..18 do
   for i in 1..100 do
     data2 << [j, i, i%j == 0]
   end
@@ -141,21 +107,9 @@ end
 
 data2.compact!
 
-# data2.each{ |n,s,exp|
-#   regexp = Regexp.new(regex_divisible_by(n))
+data2.each{ |n,s,exp|
+  regexp = Regexp.new(regex_divisible_by(n))
 
-#   act = regexp.match?(s.to_s(2))
-#   p act == exp ? "SUCCESS on #{s}/#{n}" : "FAIL: #{s}/#{n} should be #{exp}"
-# }
-
-
-n = 12
-fsm = FinitStateMachine.new(n)
-p "FSM(#{n}): #{fsm.nodes}"
-
-fsm.find_state_complexes()
-p "State complexes: #{fsm.state_complexes}, total length: #{fsm.state_complexes.map(&:join).join.length}"
-p "Initial state complex: #{fsm.state_complexes[0]}, total length: #{fsm.state_complexes[0].map(&:join).join.length}"
-
-regexp = fsm.find_regexp
-p regexp
+  act = regexp.match?(s.to_s(2))
+  p act == exp ? "SUCCESS on #{s}/#{n}" : "FAIL: #{s}/#{n} should be #{exp}"
+}
